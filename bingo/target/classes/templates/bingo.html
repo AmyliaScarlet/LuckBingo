@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8"/>
+    <title>BINGO</title>
+    <script src="/js/jquery-1.11.2.js" type="application/javascript"></script>
+    <script type="application/javascript">
+
+    var Scale = 5; //矩阵规模
+    var matrix;  //矩阵对象
+    var winIndex = []; //记录中奖索引 每次更新到最新
+    var hasWinIndex = []; //记录已经得奖的索引 避免重复发奖
+    var bWinLine =false; //是否整行全完成
+    var bWinColumn =false; //是否整列全完成
+
+
+    function restart() {
+        matrix = null;
+        winIndex = [];
+        hasWinIndex = [];
+        bWinLine =false;
+        bWinColumn =false;
+
+        start();
+    }
+
+    function DoEvent(tag) {
+        switch (tag) {
+            case 'restart':
+                restart();
+                break;
+            case 'play':
+                play();
+                break;
+        }
+
+    }
+
+    function setWinBig() {
+        //设置奖品样式变化 表明中奖
+        console.warn('设置奖品样式变化 表明中奖');
+    }
+
+    function setWinAll() {
+        //设置奖品样式变化 表明中奖
+        console.warn('设置奖品样式变化 表明中奖');
+    }
+
+    function setWin(index) {
+        //设置数字或奖品样式改变
+        if(index < 5){
+            $('#bingo_table').find('tr').eq(index).find('td').removeClass('hit').addClass('win');
+        }else if(index >= 5 && index < 10){
+            for (var i=0;i<Scale;i++){
+                $('#bingo_table').find('td').eq((index%Scale)+(i*Scale)).removeClass('hit').addClass('win');
+            }
+        }else if(index === 10){
+            setWinBig();
+        }else if(index === 11){
+            setWinAll();
+        }
+
+        //判断中奖及发奖
+        if(hasWinIndex.indexOf(index) < 0){
+            alert('共10个的行列奖中的第'+index);
+            console.warn('共10个的行列奖中的 index='+index);
+            hasWinIndex.push(index);
+            console.warn(hasWinIndex);
+            if(
+                hasWinIndex.indexOf(0) >=0 &&
+                hasWinIndex.indexOf(1) >=0 &&
+                hasWinIndex.indexOf(2) >=0 &&
+                hasWinIndex.indexOf(3) >=0 &&
+                hasWinIndex.indexOf(4) >=0
+            ){
+                WinLine();
+            }else if(
+                hasWinIndex.indexOf(5) >=0 &&
+                hasWinIndex.indexOf(6) >=0 &&
+                hasWinIndex.indexOf(7) >=0 &&
+                hasWinIndex.indexOf(8) >=0 &&
+                hasWinIndex.indexOf(9) >=0
+            ){
+                WinColumn();
+            }
+            if(hasWinIndex.length === 10){
+                WinAll();
+            }
+        }
+
+    }
+
+    function WinLine() {
+        if(!bWinLine){
+            bWinLine = true;
+            if(bWinColumn){
+                WinAll();
+            }else {
+                WinBig
+            }
+        }
+    }
+
+    function WinBig() {
+        alert('完成整行或整列的奖（右下角）');
+        console.warn('完成整行或整列的奖（右下角）');
+    }
+    function WinAll() {
+        alert("全赢奖");
+        console.warn('全赢奖');
+    }
+
+    function WinColumn() {
+        if(!bWinColumn){
+            bWinColumn = true;
+            if(WinLine){
+                WinAll();
+            }else {
+                WinBig();
+            }
+        }
+    }
+
+    function check(data) {
+        $.ajax({
+            type: "GET",
+            url: "/Check/"+data,
+            data: {},
+            dataType: "json",
+            success: function(data){
+                var newWin = difference(winIndex,data);
+                for(var i=0;i<newWin.length;i++){
+                    var index = newWin[i];
+                    setWin(index);
+                }
+
+                winIndex = data;
+            }
+        });
+    }
+    function difference(arr1, arr2) {
+        var diff = [];
+        var tmp = arr2;
+
+        arr1.forEach(function(val1, i){
+          if (arr2.indexOf(val1) < 0) {
+            diff.push(val1);
+          } else {
+            tmp.splice(tmp.indexOf(val1), 1);
+          }
+        });
+
+        return diff.concat(tmp);
+    }
+
+    function start(){
+        $.ajax({
+            type: "GET",
+            url: "/Start",
+            data: {},
+            dataType: "json",
+            success: function(data){
+                $('#bingo').html('');
+                console.log(data);
+                matrix = data.matrix;
+                var html = '<table border="1" id="bingo_table">';
+
+                $.each(matrix.matrixLine, function(commentIndex, comment){
+                    html += '<tr>'
+                    $.each(comment['data'], function(index, item){
+                        html += '<td>' + item +'</td>';
+                    });
+                    html += '</tr>'
+                });
+                html += '</table>'
+                $('#bingo').html(html);
+            }
+        });
+    }
+
+    function setHit(data,lineIndex, columnIndex) {
+        if($('#bingo_table').find('tr').eq(lineIndex).find('td').eq(columnIndex).hasClass('win') === false){
+            $('#bingo_table').find('tr').eq(lineIndex).find('td').eq(columnIndex).addClass('hit');
+        }
+        check(data);
+    }
+
+    function setMatrix(data) {
+        console.log(data);
+        var lines = matrix.matrixLine;
+
+        for(var i=0;i<lines.length;i++){
+            var line = lines[i];
+            for(var k=0;k<line.count;k++){
+                var num = line.data[k];
+                if(Number(num) === Number(data)){
+                    console.log(i+" "+k);
+                    setHit(data,i,k);
+                }
+            }
+        }
+    }
+
+    function play(){
+        $.ajax({
+            type: "GET",
+            url: "/Play",
+            data: {},
+            dataType: "json",
+            success: function(data){
+                setMatrix(data);
+
+            }
+        });
+    }
+
+
+    $(function(){
+        start();
+
+        // for(var i=0;i<1000;i++){
+        //     setTimeout(function () {
+        //         play();
+        //     },50)
+        // }
+    });
+
+    </script>
+
+    <link rel="stylesheet" type="text/css" href="/css/bingo.css">
+</head>
+<body>
+
+<div>
+    <h3>BINGO</h3>
+    <p id="score_banner"></p>
+
+    <span id="bingo"></span>
+
+
+    <input type="button" id="restart" name="restart" onclick="DoEvent('restart');" value="Restart">
+    <input type="button" id="play" name="play" onclick="DoEvent('play');" value="Play">
+</div>
+
+</body>
+</html>

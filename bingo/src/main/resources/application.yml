@@ -1,0 +1,9 @@
+spring:
+  servlet:
+    multipart:
+      enabled: false
+
+server:
+  port: 22742
+
+
